@@ -2,10 +2,10 @@ var Jimp = require("jimp");
 var path = './example.png'; //change this to whatever you want (path of the image)
  var colorData=[];
 // open a file called "lenna.png" 
-Jimp.read(path, function (err, asriel) {
+Jimp.read(path, function (err, imageTest) {
     if (err) throw err;
 	
-    asriel.scan(0, 0, asriel.bitmap.width, asriel.bitmap.height, function (x, y, idx) {
+    imageTest.scan(0, 0, imageTest.bitmap.width, imageTest.bitmap.height, function (x, y, idx) {
     // x, y is the position of this pixel on the image 
     // idx is the position start position of this rgba tuple in the bitmap Buffer 
     // this is the image 
@@ -16,17 +16,17 @@ Jimp.read(path, function (err, asriel) {
     var alpha = this.bitmap.data[ idx + 3 ];
 	var colorWeightNoAlpha = -(red/255*76)-(green/255*150)-(blue/255*29)+256;
 	var colorWeight=colorWeightNoAlpha*(alpha/255);
-	console.log(red);
-	console.log(green);
-	console.log(blue);
-	console.log(alpha);
-	console.log(colorWeight);
+	//console.log(red);
+	//console.log(green);
+	//console.log(blue);
+	//console.log(alpha);
+	//console.log(colorWeight);
 	colorData.push({x:x,y:y,r:red,g:green,b:blue,a:alpha,cw:colorWeight});
  
     // rgba values run from 0 - 255 
     // e.g. this.bitmap.data[idx] = 0; // removes red from this pixel 
 });
-console.log(colorData);
+//console.log(colorData);
 checkWeight();
 });
 function checkWeight(){
@@ -41,7 +41,7 @@ function checkWeight(){
 	generateTextArt(type,minWeight,maxWeight,knownWeights,(artttt)=>{console.log(artttt);});
 }
 function generateTextArt(mode,min,max,arr,cbf){
-	console.log(mode+' '+min+' '+max+' '+arr.join('|'));
+	//console.log(mode+' '+min+' '+max+' '+arr.join('|'));
 	var finalArt=[];
 	var currRow=0;
 	var currRowData=[];
