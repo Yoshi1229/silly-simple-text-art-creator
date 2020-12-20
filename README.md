@@ -1,9 +1,11 @@
 # Simple blocky text art creator
 
 This is just a Node.js code made for fun.
+
 Dependencies: Jimp
 
-A js file that exports a single function that generates a blocky text art with two inputs: an image file and the desired height of the text art
+A js file that exports a single function that generates a blocky text art with two inputs: an image file and the desired height of the text art.
+
 Usage:
 put textartgen.js in the same folder as your code
 ```
