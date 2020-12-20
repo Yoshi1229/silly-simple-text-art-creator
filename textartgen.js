@@ -1,145 +1,52 @@
-var Jimp = require("jimp");
-var path = './example.png'; //change this to whatever you want (path of the image)
- var colorData=[];
-// open a file called "lenna.png" 
-Jimp.read(path, function (err, imageTest) {
-    if (err) throw err;
-	
+//Text art engine.
+const Jimp = require('jimp');
+function genTextArt(path,height,cb){
+	var colorData=[];
+	Jimp.read(path).then(imageTest=> {
+	imageTest.resize(Jimp.AUTO, height);
     imageTest.scan(0, 0, imageTest.bitmap.width, imageTest.bitmap.height, function (x, y, idx) {
-    // x, y is the position of this pixel on the image 
-    // idx is the position start position of this rgba tuple in the bitmap Buffer 
-    // this is the image 
- 
-    var red   = this.bitmap.data[ idx + 0 ];
-    var green = this.bitmap.data[ idx + 1 ];
-    var blue  = this.bitmap.data[ idx + 2 ];
-    var alpha = this.bitmap.data[ idx + 3 ];
-	var colorWeightNoAlpha = -(red/255*76)-(green/255*150)-(blue/255*29)+256;
-	var colorWeight=colorWeightNoAlpha*(alpha/255);
-	//console.log(red);
-	//console.log(green);
-	//console.log(blue);
-	//console.log(alpha);
-	//console.log(colorWeight);
-	colorData.push({x:x,y:y,r:red,g:green,b:blue,a:alpha,cw:colorWeight});
- 
-    // rgba values run from 0 - 255 
-    // e.g. this.bitmap.data[idx] = 0; // removes red from this pixel 
-});
-//console.log(colorData);
-checkWeight();
-});
-function checkWeight(){
-	var minWeight=0,maxWeight=0,depthCount=0,knownWeights=[],type=0;
+        var red   = this.bitmap.data[ idx + 0 ];
+        var green = this.bitmap.data[ idx + 1 ];
+        var blue  = this.bitmap.data[ idx + 2 ];
+        var alpha = this.bitmap.data[ idx + 3 ];
+	    var colorWeight = (256-(red/255*76)-(green/255*150)-(blue/255*29))*(alpha/255); //256=solid black; 0=pure white or total transparency. i might as well just grayscale the image then do it in a simpler way, but this isnt bad
+	    colorData.push({x:x,y:y,r:red,g:green,b:blue,a:alpha,cw:colorWeight}); //return this if you want to
+    });
+	var knownWeights=[];
 	for(var c=0;c<colorData.length;c++){
-		if(colorData[c].cw>maxWeight){maxWeight=colorData[c].cw}
-		if(colorData[c].cw<minWeight){minWeight=colorData[c].cw}
-		if(knownWeights.indexOf(colorData[c].cw)===-1){knownWeights.push(colorData[c].cw);depthCount++;}
+		if(knownWeights.indexOf(colorData[c].cw)===-1){knownWeights.push(colorData[c].cw);}
 	}
-	if(depthCount<=5){type=1;}
-	knownWeights.sort(function(a, b){return a - b});
-	generateTextArt(type,minWeight,maxWeight,knownWeights,(artttt)=>{console.log(artttt);});
+	knownWeights.sort(function(a, b){return a - b}); //ascending order
+  	var finalArt='',currRow=0;
+	if(knownWeights.length>5){
+		for(var b=1;knownWeights.length>5;b++){
+		  for(var a=0;a<knownWeights.length-1;a++){
+		  	if(Math.abs(knownWeights[a+1]-knownWeights[a])<=b){knownWeights[a]=knownWeights[a+1];} //chooses the larger number (all values will be the upper class boundaries) a bit biased to the lighter colors though
+		  }
+		  knownWeights=[...new Set(knownWeights)]; //kill off repeated values
+		}	
+	} 
+	var palette=['──','░░','▒▒','▓▓','██','██']; //the sixth one is for the special cases met in the switch case block below.
+	switch (knownWeights.length){ //affects contrast, but im too lazy to make this configurable :p
+		case 5: palette=['──','░░','▒▒','▓▓','██']; break;
+		case 4: palette=['──','░░','▒▒','██']; break;
+		case 3: palette=['──','░░','██']; break;
+		case 2: var p=palette.slice(0);palette[0]=p[Math.floor(knownWeights[0]/256*5)];palette[1]=p[Math.floor(knownWeights[1]/256*5)];palette=palette.slice(0,2);break;
+		case 1: var p=palette.slice(0);palette=[];palette.push(p[Math.floor(knownWeights[0]/256*5)]);break;
+		default: cb(new Error('An error occured during image parsing')); return;
+	}
+	colorData.forEach((o)=>{
+		if(o.y!==currRow){currRow=o.y;finalArt+='\r\n';}
+		for(var i=0;i<knownWeights.length;i++){
+			if(o.cw<=knownWeights[i]){
+				finalArt+=palette[i];
+				break;
+			}
+		}
+	});
+	
+	 cb(null,finalArt);
+    }).catch(err=>{cb(err);});
 }
-function generateTextArt(mode,min,max,arr,cbf){
-	//console.log(mode+' '+min+' '+max+' '+arr.join('|'));
-	var finalArt=[];
-	var currRow=0;
-	var currRowData=[];
-	if(mode===0){
-		var arr2=arr.slice(0);
-		var toBeDel=[];
-		for(var b=0;arr2.length>5;b++){
-		for(var a=0;a<arr2.length-1;a++){
-			if(Math.abs(arr2[a+1]-arr2[a])<=b){toBeDel.push(a+1); arr2[a]=arr2[a+1];} //i know i can improve this but i dont care anymore
-		}
-		for(var c=0;c<toBeDel.length;c++){
-			arr2.splice(toBeDel[c],1);
-		}
-		}
-		generateTextArt(2,min,max,arr2,(artttt)=>{console.log(artttt);});
-		/*
-		var mixman=min+max;
-		var classBoundaries=[mixman*0.2, mixman*0.4, mixman*0.6, mixman*0.8];
 
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('──')}
-			else if(colorData[cw].cw<classBoundaries[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw<classBoundaries[2]){currRowData.push('▒▒')}
-			else if(colorData[cw].cw<classBoundaries[3]){currRowData.push('▓▓')}
-			else if(colorData[cw].cw<max){currRowData.push('██')}
-		}
-		not efficient
-		not good for images with colors overall lighter/darker
-		the problem using medians instead of averages
-		*/
-	} else if(mode===1){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(arr.length===5){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw===arr[0]){currRowData.push('──')}
-			else if(colorData[cw].cw===arr[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw===arr[2]){currRowData.push('▒▒')}
-			else if(colorData[cw].cw===arr[3]){currRowData.push('▓▓')}
-			else if(colorData[cw].cw===arr[4]){currRowData.push('██')}
-			} else if(arr.length===4){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw===arr[0]){currRowData.push('──')}
-			else if(colorData[cw].cw===arr[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw===arr[2]){currRowData.push('▒▒')}
-			else if(colorData[cw].cw===arr[3]){currRowData.push('██')}
-			} else if(arr.length===3){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw===arr[0]){currRowData.push('──')}
-			else if(colorData[cw].cw===arr[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw===arr[2]){currRowData.push('██')}
-			} else if(arr.length===2){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw===arr[0]){currRowData.push('░░')}
-			else if(colorData[cw].cw===arr[1]){currRowData.push('██')}
-			} else if(arr.length===1){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw===arr[0]){currRowData.push('░░')}}
-		}
-	} else {
-		
-		var classBoundaries=arr.slice(0);
-        if(arr.length===5){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('──')}
-			else if(colorData[cw].cw<classBoundaries[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw<classBoundaries[2]){currRowData.push('▒▒')}
-			else if(colorData[cw].cw<classBoundaries[3]){currRowData.push('▓▓')}
-			else if(colorData[cw].cw<=max){currRowData.push('██')}
-		}
-		} else if(arr.length===4){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('──')}
-			else if(colorData[cw].cw<classBoundaries[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw<classBoundaries[2]){currRowData.push('▒▒')}
-			else if(colorData[cw].cw<=max){currRowData.push('██')}
-		}
-		} else if(arr.length===3){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('──')}
-			else if(colorData[cw].cw<classBoundaries[1]){currRowData.push('░░')}
-			else if(colorData[cw].cw<=max){currRowData.push('██')}
-		} } else if(arr.length===2){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('░░')}
-			else if(colorData[cw].cw<=max){currRowData.push('██')}
-		} } else if(arr.length===1){
-		for(var cw=0;cw<colorData.length;cw++){
-			if(colorData[cw].y!==currRow){currRow=colorData[cw].y;finalArt.push(currRowData.join(''));currRowData=[];}
-			if(colorData[cw].cw<classBoundaries[0]){currRowData.push('░░')}
-		} }
-	} //i know these are dumb, but, im just trying to get it work.
-	finalArt.push(currRowData.join(''));currRowData=[];
-	if(typeof cbf=='function'){
-	cbf(finalArt.join('\n'));
-	}
-}
+module.exports={util:{genTextArt}}
